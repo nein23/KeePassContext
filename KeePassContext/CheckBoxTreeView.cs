@@ -131,16 +131,22 @@ namespace KeePassContext
         
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            base.OnKeyDown(e); 
-            if (Keys.Space == e?.KeyCode && SelectedNode != null)
-                SelectedNode.Checked = !SelectedNode.Checked;
+            base.OnKeyDown(e);
+            if (e != null)
+            {
+                if (Keys.Space == e.KeyCode && SelectedNode != null)
+                    SelectedNode.Checked = !SelectedNode.Checked;
+            }
         }
 
         protected override void OnNodeMouseClick(TreeNodeMouseClickEventArgs e)
         {
             base.OnNodeMouseClick(e);
-            if (e?.Node != null && TreeViewHitTestLocations.StateImage == HitTest(e.X, e.Y)?.Location)
-                e.Node.Checked = !e.Node.Checked;
+            if (e != null) {
+                TreeViewHitTestInfo info = HitTest(e.X, e.Y);
+                if (e.Node != null && info != null && TreeViewHitTestLocations.StateImage == info.Location)
+                    e.Node.Checked = !e.Node.Checked;
+            }
         }
 
         private ChildState getChildState(TreeNode node)
