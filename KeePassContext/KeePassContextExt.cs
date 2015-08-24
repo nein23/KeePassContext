@@ -37,7 +37,7 @@ namespace KeePassContext
             return true;
         }
 
-        public override string UpdateUrl { get { return "https://kaesdorf.com/keepasscontext/version.txt"; } }
+        public override string UpdateUrl { get { return "https://raw.githubusercontent.com/nein23/KeePassContext/master/version"; } }
 
         private void contextMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
         {
