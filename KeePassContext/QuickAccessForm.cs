@@ -10,6 +10,7 @@ using System.ComponentModel;
 using System.Data;
 using System.Drawing;
 using System.Linq;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using System.Windows.Forms;
 
@@ -19,6 +20,7 @@ namespace KeePassContext
     {
         private PwEntry entry = null;
         private IPluginHost host;
+        private PwDatabase db;
         private bool tan;
         private ImageList imgList;
         private Options options;
@@ -28,37 +30,38 @@ namespace KeePassContext
         private bool userCopied = false;
         private bool pwCopied = false;
 
-        public QuickAccessForm(IPluginHost host, PwEntry entry, Options options, bool tan)
+        public QuickAccessForm(IPluginHost host, PwEntry entry, PwDatabase db, Options options, bool tan)
         {
             this.host = host;
             this.entry = entry;
             this.tan = tan;
             this.options = options;
+            this.db = db;
 
             host.MainWindow.FileClosingPre += MainWindow_FileClosingPre;
 
             InitializeComponent();
 
-            if (options.location != (int)Options.Locations.Center)
+            if (options.location != (int) Options.Locations.Center)
             {
                 this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
                 Rectangle workingArea = Screen.PrimaryScreen.WorkingArea;
-                if (options.location == (int)Options.Locations.LowerRight)
+                if (options.location == (int) Options.Locations.LowerRight)
                 {
                     this.Left = workingArea.Right - this.Width;
                     this.Top = workingArea.Bottom - this.Height;
                 }
-                else if (options.location == (int)Options.Locations.UpperRight)
+                else if (options.location == (int) Options.Locations.UpperRight)
                 {
                     this.Left = workingArea.Right - this.Width;
                     this.Top = workingArea.Top;
                 }
-                else if (options.location == (int)Options.Locations.LowerLeft)
+                else if (options.location == (int) Options.Locations.LowerLeft)
                 {
                     this.Left = workingArea.Left;
                     this.Top = workingArea.Bottom - this.Height;
                 }
-                else if (options.location == (int)Options.Locations.UpperLeft)
+                else if (options.location == (int) Options.Locations.UpperLeft)
                 {
                     this.Left = workingArea.Left;
                     this.Top = workingArea.Top;
@@ -71,13 +74,13 @@ namespace KeePassContext
             if (title != null) this.Text = title;
 
             imgList = new ImageList();
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_KTouch"));
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_Browser"));
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_Personal"));
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_KGPG_Info"));
-            imgList.Images.Add(host.MainWindow.ClientIcons.Images[(int)PwIcon.Notepad]);
-            imgList.Images.Add(host.MainWindow.ClientIcons.Images[(int)PwIcon.List]);
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_KeePass"));
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_KTouch"));
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_Browser"));
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_Personal"));
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_KGPG_Info"));
+            imgList.Images.Add(host.MainWindow.ClientIcons.Images[(int) PwIcon.Notepad]);
+            imgList.Images.Add(host.MainWindow.ClientIcons.Images[(int) PwIcon.List]);
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_KeePass"));
 
             this.Icon = host.MainWindow.Icon;
             buttonAutoType.Image = imgList.Images[0];
@@ -90,7 +93,8 @@ namespace KeePassContext
 
             buttonAutoType.Enabled = entry.GetAutoTypeEnabled();
             buttonUrl.Enabled = !entry.Strings.GetSafe(PwDefs.UrlField).IsEmpty;
-            buttonCopyUser.Enabled = (!entry.Strings.GetSafe(PwDefs.UserNameField).IsEmpty && !tan) || (!entry.Strings.GetSafe(PwDefs.PasswordField).IsEmpty && tan);
+            buttonCopyUser.Enabled = (!entry.Strings.GetSafe(PwDefs.UserNameField).IsEmpty && !tan) ||
+                                     (!entry.Strings.GetSafe(PwDefs.PasswordField).IsEmpty && tan);
             buttonCopyPw.Enabled = !entry.Strings.GetSafe(PwDefs.PasswordField).IsEmpty && !tan;
             buttonCopyNotes.Enabled = !entry.Strings.GetSafe(PwDefs.NotesField).IsEmpty;
             buttonCopyFields.Enabled = Util.hasFields(entry);
@@ -99,7 +103,7 @@ namespace KeePassContext
             buttonCopyPw.Visible = !tan;
 
             this.panel.Select();
-            
+
             userCopied = !buttonCopyUser.Enabled;
             pwCopied = !buttonCopyPw.Enabled;
 
@@ -138,7 +142,7 @@ namespace KeePassContext
         private void Timer_Tick(object sender, EventArgs e)
         {
             ticks++;
-            if(ticks >= options.closeTime)
+            if (ticks >= options.closeTime)
             {
                 timer.Enabled = false;
                 this.Close();
@@ -152,44 +156,53 @@ namespace KeePassContext
                 AutoType.PerformIntoPreviousWindow(this, entry, host.MainWindow.ActiveDatabase);
                 if (options.closeAfterAutoType) this.Close();
             }
-            catch (Exception ex) { MessageService.ShowWarning(ex); }
+            catch (Exception ex)
+            {
+                MessageService.ShowWarning(ex);
+            }
         }
+
+        private bool buttonUrlDown = false;
+        private Point buttonUrlDownPos = Point.Empty;
 
         private void buttonOpenUrl_Click(object sender, EventArgs e)
         {
-            Point ptLowerLeft = new Point(0, buttonUrl.Height);
-            ptLowerLeft = buttonUrl.PointToScreen(ptLowerLeft);
-
-            ContextMenuStrip con = new ContextMenuStrip();
-            
-            ToolStripMenuItem item = new ToolStripMenuItem();
-            item.Image = imgList.Images[1];
-            item.Text = "Open URL";
-            item.Click += OpenURL_Click;
-            con.Items.Add(item);
-
-            item = new ToolStripMenuItem();
-            item.Image = imgList.Images[1];
-            item.Text = "Copy URL";
-            item.Click += CopyURL_Click;
-            con.Items.Add(item);
-
-            con.Show(ptLowerLeft);
-        }
-
-        private void OpenURL_Click(object sender, EventArgs e)
-        {
+            buttonUrlDown = false;
+            buttonUrlDownPos = Point.Empty;
             WinUtil.OpenEntryUrl(entry);
         }
 
-        private void CopyURL_Click(object sender, EventArgs e)
+        private void buttonUrl_MouseDown(object sender, MouseEventArgs e)
         {
-            readEntryStringAndCopyToClipboard(PwDefs.UrlField);
+            buttonUrlDown = true;
+            buttonUrlDownPos = e.Location;
         }
+
+        private void buttonUrl_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (buttonUrlDown)
+            {
+                int dx = Math.Abs(buttonUrlDownPos.X - e.X);
+                int dy = Math.Abs(buttonUrlDownPos.Y - e.Y);
+                if (e.X < 0 || e.Y < 0  || e.X >= buttonUrl.Size.Width || e.Y >= buttonUrl.Size.Height || dx > 10 || dy > 10)
+                {
+
+                    ProtectedString pstr = entry.Strings.GetSafe(PwDefs.UrlField);
+                    buttonUrl.DoDragDrop(pstr.ReadString(), DragDropEffects.Copy);
+                    buttonUrlDown = false;
+                    buttonUrlDownPos = Point.Empty;
+                }
+            }
+        }
+
+        private bool buttonCopyUserDown = false;
+        private Point buttonCopyUserDownPos = Point.Empty;
 
         private void buttonCopyUser_Click(object sender, EventArgs e)
         {
-            if(tan)
+            buttonCopyUserDown = false;
+            buttonCopyUserDownPos = Point.Empty;
+            if (tan)
             {
                 readEntryStringAndCopyToClipboard(PwDefs.PasswordField);
                 if (entry.Expires && entry.ExpiryTime <= DateTime.Now) return;
@@ -198,15 +211,70 @@ namespace KeePassContext
                 host.MainWindow.UpdateUI(false, null, false, entry.ParentGroup, true, entry.ParentGroup, false);
             }
             else readEntryStringAndCopyToClipboard(PwDefs.UserNameField);
+
             userCopied = true;
             if (options.closeAfterCopy && userCopied && pwCopied) this.Close();
         }
 
+        private void buttonCopyUser_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (!tan)
+            {
+                buttonCopyUserDown = true;
+                buttonCopyUserDownPos = e.Location;
+            }
+        }
+
+        private void buttonCopyUser_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (!tan && buttonCopyUserDown)
+            {
+                int dx = Math.Abs(buttonCopyUserDownPos.X - e.X);
+                int dy = Math.Abs(buttonCopyUserDownPos.Y - e.Y);
+                if (e.X < 0 || e.Y < 0 || e.X >= buttonCopyUser.Size.Width || e.Y >= buttonCopyUser.Size.Height || dx > 10 || dy > 10)
+                {
+
+                    ProtectedString pstr = entry.Strings.GetSafe(PwDefs.UserNameField);
+                    buttonCopyUser.DoDragDrop(pstr.ReadString(), DragDropEffects.Copy);
+                    buttonCopyUserDown = false;
+                    buttonCopyUserDownPos = Point.Empty;
+                }
+            }
+        }
+
+        private bool buttonCopyPwDown = false;
+        private Point buttonCopyPwDownPos = Point.Empty;
+
         private void buttonCopyPw_Click(object sender, EventArgs e)
         {
+            buttonCopyPwDown = false;
+            buttonCopyPwDownPos = Point.Empty;
             readEntryStringAndCopyToClipboard(PwDefs.PasswordField);
             pwCopied = true;
             if (options.closeAfterCopy && userCopied && pwCopied) this.Close();
+        }
+
+        private void buttonCopyPw_MouseDown(object sender, MouseEventArgs e)
+        {
+            buttonCopyPwDown = true;
+            buttonCopyPwDownPos = e.Location;
+        }
+
+        private void buttonCopyPw_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (buttonCopyPwDown)
+            {
+                int dx = Math.Abs(buttonCopyPwDownPos.X - e.X);
+                int dy = Math.Abs(buttonCopyPwDownPos.Y - e.Y);
+                if (e.X < 0 || e.Y < 0 || e.X >= buttonCopyPw.Size.Width || e.Y >= buttonCopyPw.Size.Height || dx > 10 || dy > 10)
+                {
+
+                    ProtectedString pstr = entry.Strings.GetSafe(PwDefs.PasswordField);
+                    buttonCopyPw.DoDragDrop(pstr.ReadString(), DragDropEffects.Copy);
+                    buttonCopyPwDown = false;
+                    buttonCopyPwDownPos = Point.Empty;
+                }
+            }
         }
 
         private void buttonCopyNotes_Click(object sender, EventArgs e)
@@ -228,12 +296,13 @@ namespace KeePassContext
                     PwIcon pwIcon = (kvpStr.Value.IsProtected ? PwIcon.PaperLocked : PwIcon.PaperNew);
 
                     ToolStripMenuItem item = new ToolStripMenuItem();
-                    item.Image = host.MainWindow.ClientIcons.Images[(int)pwIcon];
+                    item.Image = host.MainWindow.ClientIcons.Images[(int) pwIcon];
                     item.Text = kvpStr.Key;
                     item.Click += fieldsContextMenu_Click;
                     fcon.Items.Add(item);
                 }
             }
+
             fcon.Show(ptLowerLeft);
         }
 
@@ -241,7 +310,7 @@ namespace KeePassContext
         {
             if (sender.GetType() == typeof(ToolStripMenuItem))
             {
-                ToolStripMenuItem item = (ToolStripMenuItem)sender;
+                ToolStripMenuItem item = (ToolStripMenuItem) sender;
                 readEntryStringAndCopyToClipboard(item.Text);
             }
         }
@@ -263,8 +332,8 @@ namespace KeePassContext
             {
                 if (gc[0].GetType() == typeof(CustomTreeViewEx) && ec[0].GetType() == typeof(CustomListViewEx))
                 {
-                    CustomTreeViewEx groupTree = (CustomTreeViewEx)gc[0];
-                    CustomListViewEx entryList = (CustomListViewEx)ec[0];
+                    CustomTreeViewEx groupTree = (CustomTreeViewEx) gc[0];
+                    CustomListViewEx entryList = (CustomListViewEx) ec[0];
 
 
                     List<PwGroup> groupPath = getGroupPath(entry);
@@ -286,6 +355,7 @@ namespace KeePassContext
                                     node.Expand();
                                 }
                             }
+
                             groupTree.SelectedNode = node;
                             host.MainWindow.UpdateUI(false, null, false, group, true, group, false);
 
@@ -293,7 +363,7 @@ namespace KeePassContext
                             {
                                 if (lvi.Tag.GetType() == typeof(PwListItem))
                                 {
-                                    PwListItem pwli = (PwListItem)lvi.Tag;
+                                    PwListItem pwli = (PwListItem) lvi.Tag;
                                     PwEntry listEntry = pwli.Entry;
                                     if (listEntry != null && listEntry.Uuid.Equals(entry.Uuid))
                                     {
@@ -301,6 +371,7 @@ namespace KeePassContext
                                         continue;
                                     }
                                 }
+
                                 lvi.Selected = false;
                             }
 
@@ -317,7 +388,6 @@ namespace KeePassContext
                         TreeNode node = groupTree.SelectedNode;
                         node.Expand();
                     }
-
                 }
             }
         }
@@ -331,7 +401,7 @@ namespace KeePassContext
                 {
                     if (node.Tag.GetType() == typeof(PwGroup))
                     {
-                        PwGroup nodeGroup = (PwGroup)node.Tag;
+                        PwGroup nodeGroup = (PwGroup) node.Tag;
                         if (nodeGroup != null && nodeGroup.Uuid.Equals(group.Uuid))
                         {
                             return node;
@@ -339,6 +409,7 @@ namespace KeePassContext
                     }
                 }
             }
+
             return null;
         }
 
@@ -351,16 +422,16 @@ namespace KeePassContext
                 groupPath.Insert(0, group);
                 group = group.ParentGroup;
             }
+
             return groupPath;
         }
 
         protected void readEntryStringAndCopyToClipboard(string name)
         {
-            string str = entry.Strings.ReadSafe(name);
-            if (str != null)
+            ProtectedString pstr = entry.Strings.GetSafe(name);
+            if (ClipboardUtil.Copy(pstr.ReadString(), true, true, entry, db, IntPtr.Zero))
             {
-                int duration = options.clearClipboard ? options.clearClipboardTime : 0;
-                Util.CopyToClipboard(str, duration);
+                host.MainWindow.StartClipboardCountdown();
             }
         }
     }

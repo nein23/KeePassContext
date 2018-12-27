@@ -111,6 +111,8 @@
             this.buttonCopyPw.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.buttonCopyPw.UseVisualStyleBackColor = true;
             this.buttonCopyPw.Click += new System.EventHandler(this.buttonCopyPw_Click);
+            this.buttonCopyPw.MouseDown += new System.Windows.Forms.MouseEventHandler(this.buttonCopyPw_MouseDown);
+            this.buttonCopyPw.MouseMove += new System.Windows.Forms.MouseEventHandler(this.buttonCopyPw_MouseMove);
             // 
             // buttonCopyUser
             // 
@@ -123,6 +125,8 @@
             this.buttonCopyUser.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.buttonCopyUser.UseVisualStyleBackColor = true;
             this.buttonCopyUser.Click += new System.EventHandler(this.buttonCopyUser_Click);
+            this.buttonCopyUser.MouseDown += new System.Windows.Forms.MouseEventHandler(this.buttonCopyUser_MouseDown);
+            this.buttonCopyUser.MouseMove += new System.Windows.Forms.MouseEventHandler(this.buttonCopyUser_MouseMove);
             // 
             // buttonUrl
             // 
@@ -135,6 +139,8 @@
             this.buttonUrl.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.buttonUrl.UseVisualStyleBackColor = true;
             this.buttonUrl.Click += new System.EventHandler(this.buttonOpenUrl_Click);
+            this.buttonUrl.MouseDown += new System.Windows.Forms.MouseEventHandler(this.buttonUrl_MouseDown);
+            this.buttonUrl.MouseMove += new System.Windows.Forms.MouseEventHandler(this.buttonUrl_MouseMove);
             // 
             // QuickAccessForm
             // 

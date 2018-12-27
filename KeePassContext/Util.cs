@@ -11,9 +11,6 @@ namespace KeePassContext
 {
     class Util
     {
-        private static Timer clipboardTimer = null;
-        private static int ticks = 0;
-        private static int duration = 0;
 
         public static Image getIcon(PwDatabase db, ImageList imageList, PwUuid customIconId, PwIcon iconId)
         {
@@ -24,40 +21,6 @@ namespace KeePassContext
             else
             {
                 return imageList.Images[(int)iconId];
-            }
-        }
-
-        public static void CopyToClipboard(string str, int duration)
-        {
-            if (str != null)
-            {
-                if (clipboardTimer != null)
-                {
-                    clipboardTimer.Stop();
-                    clipboardTimer.Enabled = false;
-                    Clipboard.Clear();
-                }
-                Util.duration = duration;
-                Clipboard.SetText(str);
-                if (Util.duration > 0)
-                {
-                    clipboardTimer = new Timer();
-                    clipboardTimer.Interval = 1000;
-                    clipboardTimer.Tick += timer_Tick;
-                    ticks = 0;
-                    clipboardTimer.Enabled = true;
-                }
-            }
-        }
-
-        private static void timer_Tick(object sender, EventArgs e)
-        {
-            ticks++;
-            if (ticks >= duration)
-            {
-                clipboardTimer.Enabled = false;
-                clipboardTimer = null;
-                Clipboard.Clear();
             }
         }
 

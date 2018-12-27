@@ -186,7 +186,7 @@ namespace KeePassContext
                 if (item.Tag != null && item.Tag.GetType() == typeof(PwEntry))
                 {
                     PwEntry entry = (PwEntry)item.Tag;
-                    new QuickAccessForm(host, entry, options, PwDefs.IsTanEntry(entry)).Show();
+                    new QuickAccessForm(host, entry, db, options, PwDefs.IsTanEntry(entry)).Show();
                 }
             }
             
