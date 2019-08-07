@@ -21,6 +21,7 @@ namespace KeePassContext
         private Options options;
         private Timer timer;
         private int ticks;
+        private Point mouseDownPos = Point.Empty;
 
         private bool userCopied = false;
         private bool pwCopied = false;
@@ -166,7 +167,7 @@ namespace KeePassContext
             }
         }
 
-        private void buttonOpenUrl_Click(object sender, EventArgs e)
+        private void buttonUrl_Click(object sender, EventArgs e)
         {
             Point ptLowerLeft = new Point(0, buttonUrl.Height);
             ptLowerLeft = buttonUrl.PointToScreen(ptLowerLeft);
@@ -188,6 +189,20 @@ namespace KeePassContext
             con.Show(ptLowerLeft);
         }
 
+        private void buttonUrl_MouseDown(object sender, MouseEventArgs e)
+        {
+            mouseDownPos = e.Location;
+        }
+
+        private void buttonUrl_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (checkDrag(e, buttonUrl))
+            {
+                string data = entry.Strings.ReadSafe(PwDefs.UrlField);
+                buttonUrl.DoDragDrop(data, DragDropEffects.Copy);
+            }
+        }
+
         private void OpenURL_Click(object sender, EventArgs e)
         {
             WinUtil.OpenEntryUrl(entry);
@@ -200,6 +215,7 @@ namespace KeePassContext
 
         private void buttonCopyUser_Click(object sender, EventArgs e)
         {
+            mouseDownPos = Point.Empty;
             if (tan)
             {
                 readEntryStringAndCopyToClipboard(PwDefs.PasswordField);
@@ -218,12 +234,21 @@ namespace KeePassContext
 
         private void buttonCopyUser_MouseDown(object sender, MouseEventArgs e)
         {
-            string data = entry.Strings.ReadSafe(tan ? PwDefs.PasswordField : PwDefs.UserNameField);
-            buttonCopyUser.DoDragDrop(data, DragDropEffects.Copy);
+            mouseDownPos = e.Location;
+        }
+
+        private void buttonCopyUser_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (checkDrag(e, buttonCopyUser))
+            {
+                string data = entry.Strings.ReadSafe(tan ? PwDefs.PasswordField : PwDefs.UserNameField);
+                buttonCopyUser.DoDragDrop(data, DragDropEffects.Copy);
+            }
         }
 
         private void buttonCopyPw_Click(object sender, EventArgs e)
         {
+            mouseDownPos = Point.Empty;
             readEntryStringAndCopyToClipboard(PwDefs.PasswordField);
             pwCopied = true;
             if (options.CloseAfterCopy && userCopied) this.Close();
@@ -231,19 +256,21 @@ namespace KeePassContext
 
         private void buttonCopyPw_MouseDown(object sender, MouseEventArgs e)
         {
-            string data = entry.Strings.ReadSafe(PwDefs.PasswordField);
-            buttonCopyPw.DoDragDrop(data, DragDropEffects.Copy);
+            mouseDownPos = e.Location;
+        }
+
+        private void buttonCopyPw_MouseMove(object sender, MouseEventArgs e)
+        {
+            if (checkDrag(e, buttonCopyPw))
+            {
+                string data = entry.Strings.ReadSafe(PwDefs.PasswordField);
+                buttonCopyPw.DoDragDrop(data, DragDropEffects.Copy);
+            }
         }
 
         private void buttonCopyNotes_Click(object sender, EventArgs e)
         {
             readEntryStringAndCopyToClipboard(PwDefs.NotesField);
-        }
-
-        private void buttonCopyNotes_MouseDown(object sender, MouseEventArgs e)
-        {
-            string data = entry.Strings.ReadSafe(PwDefs.NotesField);
-            buttonCopyNotes.DoDragDrop(data, DragDropEffects.Copy);
         }
 
         private void buttonCopyFields_Click(object sender, EventArgs e)
@@ -263,7 +290,6 @@ namespace KeePassContext
                     item.Image = host.MainWindow.ClientIcons.Images[(int) pwIcon];
                     item.Text = kvpStr.Key;
                     item.Click += fieldsContextMenu_Click;
-                    item.MouseDown += fieldsContextMenu_MouseDown;
                     fcon.Items.Add(item);
                 }
             }
@@ -275,18 +301,8 @@ namespace KeePassContext
         {
             if (sender is ToolStripMenuItem)
             {
-                ToolStripMenuItem item = (ToolStripMenuItem)sender;
+                ToolStripMenuItem item = (ToolStripMenuItem) sender;
                 readEntryStringAndCopyToClipboard(item.Text);
-            }
-        }
-
-        private void fieldsContextMenu_MouseDown(object sender, EventArgs e)
-        {
-            if (sender is ToolStripMenuItem)
-            {
-                ToolStripMenuItem item = (ToolStripMenuItem)sender;
-                string data = entry.Strings.ReadSafe(item.Text);
-                item.DoDragDrop(data, DragDropEffects.Copy);
             }
         }
 
@@ -414,6 +430,23 @@ namespace KeePassContext
                 KeePass.Program.Config.MainWindow.MinimizeAfterClipboardCopy ? host.MainWindow : null,
                 entry, host.MainWindow.ActiveDatabase);
             host.MainWindow.StartClipboardCountdown();
+        }
+
+        private bool checkDrag(MouseEventArgs current, Control control, int delta = 10)
+        {
+            if (!mouseDownPos.IsEmpty)
+            {
+                int dx = Math.Abs(mouseDownPos.X - current.X);
+                int dy = Math.Abs(mouseDownPos.Y - current.Y);
+                if (current.X < 0 || current.Y < 0 || current.X >= control.Size.Width ||
+                    current.Y >= control.Size.Height || dx > 10 || dy > 10)
+                {
+                    mouseDownPos = Point.Empty;
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }
