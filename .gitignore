@@ -1,4 +1,6 @@
 /KeePassContext/obj/
 /KeePassContext/bin/
+/bin
+/obj
 /.vs/
 /KeePassContext.sln.DotSettings.user
