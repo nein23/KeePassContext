@@ -12,8 +12,6 @@ namespace KeePassContext
         public enum CheckedState : int { UnInitialised = -1, UnChecked, Checked, Mixed };
         public enum ChildState : int { None = 0, AllUnChecked = 1, AllChecked = 2, Mixed = 3 };
         
-        bool _lock= false;
-        
         public CheckBoxTreeView() : base()
         {
             CheckBoxes = false;
@@ -43,44 +41,36 @@ namespace KeePassContext
 
         protected override void OnAfterCheck(TreeViewEventArgs e)
         {
-            base.OnAfterCheck(e);
-
-            if (_lock)  return;
-
-            _lock = true;
-
             TreeNode node = e.Node;
             ChildState childState = getChildState(node);
 
-            if (childState == ChildState.None)
+            if(node.StateImageIndex == (int)CheckedState.Checked)
             {
-                if (node.StateImageIndex == (int)CheckedState.Checked) node.StateImageIndex = (int)CheckedState.UnChecked;
-                else node.StateImageIndex = (int)CheckedState.Checked;
+                if (childState == ChildState.None) node.StateImageIndex = (int)CheckedState.UnChecked;
+                else if (childState == ChildState.AllChecked) node.StateImageIndex = (int)CheckedState.UnChecked;
+                else if (childState == ChildState.AllUnChecked) node.StateImageIndex = (int)CheckedState.Mixed;//Never
+                else if (childState == ChildState.Mixed) node.StateImageIndex = (int)CheckedState.Mixed;//Never
             }
-            else if(childState == ChildState.AllChecked)
+            else if(node.StateImageIndex == (int)CheckedState.UnChecked)
             {
-                if (node.StateImageIndex == (int)CheckedState.Checked) node.StateImageIndex = (int)CheckedState.UnChecked;
-                else if (node.StateImageIndex == (int)CheckedState.Mixed) node.StateImageIndex = (int)CheckedState.UnChecked;
-                else node.StateImageIndex = (int)CheckedState.Checked;
+                if (childState == ChildState.None) node.StateImageIndex = (int)CheckedState.Checked;
+                else if (childState == ChildState.AllChecked) node.StateImageIndex = (int)CheckedState.Checked;//Never
+                else if (childState == ChildState.AllUnChecked) node.StateImageIndex = (int)CheckedState.Mixed;
+                else if (childState == ChildState.Mixed) node.StateImageIndex = (int)CheckedState.Mixed;//Never
             }
-            else if (childState == ChildState.AllUnChecked)
+            else
             {
-                if (node.StateImageIndex == (int)CheckedState.Checked) node.StateImageIndex = (int)CheckedState.Mixed;
-                else if (node.StateImageIndex == (int)CheckedState.Mixed) node.StateImageIndex = (int)CheckedState.UnChecked;
-                else node.StateImageIndex = (int)CheckedState.Checked;
-            }
-            else if (childState == ChildState.Mixed)
-            {
-                if (node.StateImageIndex == (int)CheckedState.Checked) node.StateImageIndex = (int)CheckedState.Mixed;
-                else if (node.StateImageIndex == (int)CheckedState.Mixed) node.StateImageIndex = (int)CheckedState.UnChecked;
-                else node.StateImageIndex = (int)CheckedState.Checked;
+                if (childState == ChildState.None) node.StateImageIndex = (int)CheckedState.Checked;//Never
+                else if (childState == ChildState.AllChecked) node.StateImageIndex = (int)CheckedState.Checked;//Never
+                else if (childState == ChildState.AllUnChecked) node.StateImageIndex = (int)CheckedState.Checked;//Never
+                else if (childState == ChildState.Mixed) node.StateImageIndex = (int)CheckedState.Checked;//Never
             }
             
             UpdateChildren(node.Nodes, node.StateImageIndex);
             
             UpdateParent(node.Parent);
 
-            _lock = false;
+            base.OnAfterCheck(e);
         }
         
         protected void UpdateChildren(TreeNodeCollection nodes, int stateImageIndex)
@@ -97,7 +87,7 @@ namespace KeePassContext
                 }
             }
         }
-        
+
         public void UpdateParent(TreeNode node)
         {
             if (node == null)
@@ -112,7 +102,8 @@ namespace KeePassContext
             }
             else if (childState == ChildState.AllUnChecked)
             {
-                node.StateImageIndex = (int)CheckedState.Mixed;
+                if(oldState != (int)CheckedState.UnChecked)
+                    node.StateImageIndex = (int)CheckedState.Mixed;
             }
             else if (childState == ChildState.Mixed)
             {

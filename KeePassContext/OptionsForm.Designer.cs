@@ -410,7 +410,7 @@
 
         private System.Windows.Forms.CheckBox checkBox_showEmpty;
         private System.Windows.Forms.CheckBox checkBox_showExpired;
-        private CheckBoxTreeView checkBoxTreeView_groupFilter;
+        private KeePassContext.CheckBoxTreeView checkBoxTreeView_groupFilter;
         private System.Windows.Forms.Button button_OK;
         private System.Windows.Forms.Button button_Cancel;
         private System.Windows.Forms.CheckBox checkBox_showRecycleBin;

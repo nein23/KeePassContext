@@ -6,17 +6,14 @@ using KeePassLib.Security;
 using KeePassLib.Utility;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
 using System.Drawing;
-using System.Linq;
-using System.Text;
 using System.Windows.Forms;
 
 namespace KeePassContext
 {
     public partial class QuickAccessForm : Form
     {
+        public static bool IS_OPEN = false;
         private PwEntry entry = null;
         private IPluginHost host;
         private bool tan;
@@ -35,30 +32,28 @@ namespace KeePassContext
             this.tan = tan;
             this.options = options;
 
-            host.MainWindow.FileClosingPre += MainWindow_FileClosingPre;
-
             InitializeComponent();
 
-            if (options.location != (int)Options.Locations.Center)
+            if (options.Location != (int) Options.Locations.Center)
             {
                 this.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
                 Rectangle workingArea = Screen.PrimaryScreen.WorkingArea;
-                if (options.location == (int)Options.Locations.LowerRight)
+                if (options.Location == (int) Options.Locations.LowerRight)
                 {
                     this.Left = workingArea.Right - this.Width;
                     this.Top = workingArea.Bottom - this.Height;
                 }
-                else if (options.location == (int)Options.Locations.UpperRight)
+                else if (options.Location == (int) Options.Locations.UpperRight)
                 {
                     this.Left = workingArea.Right - this.Width;
                     this.Top = workingArea.Top;
                 }
-                else if (options.location == (int)Options.Locations.LowerLeft)
+                else if (options.Location == (int) Options.Locations.LowerLeft)
                 {
                     this.Left = workingArea.Left;
                     this.Top = workingArea.Bottom - this.Height;
                 }
-                else if (options.location == (int)Options.Locations.UpperLeft)
+                else if (options.Location == (int) Options.Locations.UpperLeft)
                 {
                     this.Left = workingArea.Left;
                     this.Top = workingArea.Top;
@@ -67,17 +62,19 @@ namespace KeePassContext
 
 
             host.MainWindow.FileClosingPre += MainWindow_FileClosingPre;
+            host.MainWindow.VisibleChanged += MainWindow_VisibleChanged;
+
             string title = entry.Strings.ReadSafe(PwDefs.TitleField);
             if (title != null) this.Text = title;
 
             imgList = new ImageList();
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_KTouch"));
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_Browser"));
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_Personal"));
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_KGPG_Info"));
-            imgList.Images.Add(host.MainWindow.ClientIcons.Images[(int)PwIcon.Notepad]);
-            imgList.Images.Add(host.MainWindow.ClientIcons.Images[(int)PwIcon.List]);
-            imgList.Images.Add((System.Drawing.Bitmap)host.Resources.GetObject("B16x16_KeePass"));
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_KTouch"));
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_Browser"));
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_Personal"));
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_KGPG_Info"));
+            imgList.Images.Add(host.MainWindow.ClientIcons.Images[(int) PwIcon.Notepad]);
+            imgList.Images.Add(host.MainWindow.ClientIcons.Images[(int) PwIcon.List]);
+            imgList.Images.Add((System.Drawing.Bitmap) host.Resources.GetObject("B16x16_KeePass"));
 
             this.Icon = host.MainWindow.Icon;
             buttonAutoType.Image = imgList.Images[0];
@@ -90,22 +87,33 @@ namespace KeePassContext
 
             buttonAutoType.Enabled = entry.GetAutoTypeEnabled();
             buttonUrl.Enabled = !entry.Strings.GetSafe(PwDefs.UrlField).IsEmpty;
-            buttonCopyUser.Enabled = (!entry.Strings.GetSafe(PwDefs.UserNameField).IsEmpty && !tan) || (!entry.Strings.GetSafe(PwDefs.PasswordField).IsEmpty && tan);
+            buttonCopyUser.Enabled = (!entry.Strings.GetSafe(PwDefs.UserNameField).IsEmpty && !tan) ||
+                                     (!entry.Strings.GetSafe(PwDefs.PasswordField).IsEmpty && tan);
             buttonCopyPw.Enabled = !entry.Strings.GetSafe(PwDefs.PasswordField).IsEmpty && !tan;
             buttonCopyNotes.Enabled = !entry.Strings.GetSafe(PwDefs.NotesField).IsEmpty;
-            buttonCopyFields.Enabled = Util.hasFields(entry);
+            buttonCopyFields.Enabled = HasFields(entry);
 
             if (tan) buttonCopyUser.Text = "Copy TAN";
             buttonCopyPw.Visible = !tan;
 
             this.panel.Select();
-            
+
             userCopied = !buttonCopyUser.Enabled;
             pwCopied = !buttonCopyPw.Enabled;
 
             this.Activated += QuickAccessForm_Activated;
             this.Deactivate += QuickAccessForm_Deactivate;
             this.FormClosing += QuickAccessForm_FormClosing;
+        }
+
+        internal static bool HasFields(PwEntry entry)
+        {
+            foreach (KeyValuePair<string, ProtectedString> kvpStr in entry.Strings)
+            {
+                if (!PwDefs.IsStandardField(kvpStr.Key)) return true;
+            }
+
+            return false;
         }
 
         private void QuickAccessForm_FormClosing(object sender, FormClosingEventArgs e)
@@ -124,7 +132,7 @@ namespace KeePassContext
 
         private void QuickAccessForm_Deactivate(object sender, EventArgs e)
         {
-            if (options.closeAfterTime)
+            if (options.CloseAfterTime)
             {
                 if (timer != null) timer.Enabled = false;
                 ticks = 0;
@@ -138,7 +146,7 @@ namespace KeePassContext
         private void Timer_Tick(object sender, EventArgs e)
         {
             ticks++;
-            if(ticks >= options.closeTime)
+            if (ticks >= options.CloseTime)
             {
                 timer.Enabled = false;
                 this.Close();
@@ -150,9 +158,12 @@ namespace KeePassContext
             try
             {
                 AutoType.PerformIntoPreviousWindow(this, entry, host.MainWindow.ActiveDatabase);
-                if (options.closeAfterAutoType) this.Close();
+                if (options.CloseAfterAutoType) this.Close();
             }
-            catch (Exception ex) { MessageService.ShowWarning(ex); }
+            catch (Exception ex)
+            {
+                MessageService.ShowWarning(ex);
+            }
         }
 
         private void buttonOpenUrl_Click(object sender, EventArgs e)
@@ -161,7 +172,7 @@ namespace KeePassContext
             ptLowerLeft = buttonUrl.PointToScreen(ptLowerLeft);
 
             ContextMenuStrip con = new ContextMenuStrip();
-            
+
             ToolStripMenuItem item = new ToolStripMenuItem();
             item.Image = imgList.Images[1];
             item.Text = "Open URL";
@@ -189,29 +200,50 @@ namespace KeePassContext
 
         private void buttonCopyUser_Click(object sender, EventArgs e)
         {
-            if(tan)
+            if (tan)
             {
                 readEntryStringAndCopyToClipboard(PwDefs.PasswordField);
                 if (entry.Expires && entry.ExpiryTime <= DateTime.Now) return;
-                entry.Touch(false);
                 EntryUtil.ExpireTanEntryIfOption(entry, host.MainWindow.ActiveDatabase);
-                host.MainWindow.UpdateUI(false, null, false, entry.ParentGroup, true, entry.ParentGroup, false);
+                host.MainWindow.UpdateUI(false, null, false, null, true, null, true);
             }
-            else readEntryStringAndCopyToClipboard(PwDefs.UserNameField);
+            else
+            {
+                readEntryStringAndCopyToClipboard(PwDefs.UserNameField);
+            }
+
             userCopied = true;
-            if (options.closeAfterCopy && userCopied && pwCopied) this.Close();
+            if (options.CloseAfterCopy && pwCopied) this.Close();
+        }
+
+        private void buttonCopyUser_MouseDown(object sender, MouseEventArgs e)
+        {
+            string data = entry.Strings.ReadSafe(tan ? PwDefs.PasswordField : PwDefs.UserNameField);
+            buttonCopyUser.DoDragDrop(data, DragDropEffects.Copy);
         }
 
         private void buttonCopyPw_Click(object sender, EventArgs e)
         {
             readEntryStringAndCopyToClipboard(PwDefs.PasswordField);
             pwCopied = true;
-            if (options.closeAfterCopy && userCopied && pwCopied) this.Close();
+            if (options.CloseAfterCopy && userCopied) this.Close();
+        }
+
+        private void buttonCopyPw_MouseDown(object sender, MouseEventArgs e)
+        {
+            string data = entry.Strings.ReadSafe(PwDefs.PasswordField);
+            buttonCopyPw.DoDragDrop(data, DragDropEffects.Copy);
         }
 
         private void buttonCopyNotes_Click(object sender, EventArgs e)
         {
             readEntryStringAndCopyToClipboard(PwDefs.NotesField);
+        }
+
+        private void buttonCopyNotes_MouseDown(object sender, MouseEventArgs e)
+        {
+            string data = entry.Strings.ReadSafe(PwDefs.NotesField);
+            buttonCopyNotes.DoDragDrop(data, DragDropEffects.Copy);
         }
 
         private void buttonCopyFields_Click(object sender, EventArgs e)
@@ -228,21 +260,33 @@ namespace KeePassContext
                     PwIcon pwIcon = (kvpStr.Value.IsProtected ? PwIcon.PaperLocked : PwIcon.PaperNew);
 
                     ToolStripMenuItem item = new ToolStripMenuItem();
-                    item.Image = host.MainWindow.ClientIcons.Images[(int)pwIcon];
+                    item.Image = host.MainWindow.ClientIcons.Images[(int) pwIcon];
                     item.Text = kvpStr.Key;
                     item.Click += fieldsContextMenu_Click;
+                    item.MouseDown += fieldsContextMenu_MouseDown;
                     fcon.Items.Add(item);
                 }
             }
+
             fcon.Show(ptLowerLeft);
         }
 
         private void fieldsContextMenu_Click(object sender, EventArgs e)
         {
-            if (sender.GetType() == typeof(ToolStripMenuItem))
+            if (sender is ToolStripMenuItem)
             {
                 ToolStripMenuItem item = (ToolStripMenuItem)sender;
                 readEntryStringAndCopyToClipboard(item.Text);
+            }
+        }
+
+        private void fieldsContextMenu_MouseDown(object sender, EventArgs e)
+        {
+            if (sender is ToolStripMenuItem)
+            {
+                ToolStripMenuItem item = (ToolStripMenuItem)sender;
+                string data = entry.Strings.ReadSafe(item.Text);
+                item.DoDragDrop(data, DragDropEffects.Copy);
             }
         }
 
@@ -251,21 +295,27 @@ namespace KeePassContext
             this.Close();
         }
 
+        private void MainWindow_VisibleChanged(object sender, EventArgs e)
+        {
+            if (host.MainWindow.Visible)
+            {
+                Close();
+            }
+        }
+
         private void buttonMainWindow_Click(object sender, EventArgs e)
         {
             this.Close();
 
             host.MainWindow.EnsureVisibleForegroundWindow(true, true);
-
             Control[] gc = host.MainWindow.Controls.Find("m_tvGroups", true);
             Control[] ec = host.MainWindow.Controls.Find("m_lvEntries", true);
             if (gc != null && gc.Length == 1 && ec != null && ec.Length == 1)
             {
-                if (gc[0].GetType() == typeof(CustomTreeViewEx) && ec[0].GetType() == typeof(CustomListViewEx))
+                if (gc[0] is CustomTreeViewEx && ec[0] is CustomListViewEx)
                 {
-                    CustomTreeViewEx groupTree = (CustomTreeViewEx)gc[0];
-                    CustomListViewEx entryList = (CustomListViewEx)ec[0];
-
+                    CustomTreeViewEx groupTree = (CustomTreeViewEx) gc[0];
+                    CustomListViewEx entryList = (CustomListViewEx) ec[0];
 
                     List<PwGroup> groupPath = getGroupPath(entry);
                     if (groupPath.Count > 0)
@@ -286,6 +336,7 @@ namespace KeePassContext
                                     node.Expand();
                                 }
                             }
+
                             groupTree.SelectedNode = node;
                             host.MainWindow.UpdateUI(false, null, false, group, true, group, false);
 
@@ -293,7 +344,7 @@ namespace KeePassContext
                             {
                                 if (lvi.Tag.GetType() == typeof(PwListItem))
                                 {
-                                    PwListItem pwli = (PwListItem)lvi.Tag;
+                                    PwListItem pwli = (PwListItem) lvi.Tag;
                                     PwEntry listEntry = pwli.Entry;
                                     if (listEntry != null && listEntry.Uuid.Equals(entry.Uuid))
                                     {
@@ -301,6 +352,7 @@ namespace KeePassContext
                                         continue;
                                     }
                                 }
+
                                 lvi.Selected = false;
                             }
 
@@ -317,7 +369,6 @@ namespace KeePassContext
                         TreeNode node = groupTree.SelectedNode;
                         node.Expand();
                     }
-
                 }
             }
         }
@@ -329,9 +380,9 @@ namespace KeePassContext
             {
                 foreach (TreeNode node in nodes)
                 {
-                    if (node.Tag.GetType() == typeof(PwGroup))
+                    if (node.Tag is PwGroup)
                     {
-                        PwGroup nodeGroup = (PwGroup)node.Tag;
+                        PwGroup nodeGroup = (PwGroup) node.Tag;
                         if (nodeGroup != null && nodeGroup.Uuid.Equals(group.Uuid))
                         {
                             return node;
@@ -339,6 +390,7 @@ namespace KeePassContext
                     }
                 }
             }
+
             return null;
         }
 
@@ -351,17 +403,17 @@ namespace KeePassContext
                 groupPath.Insert(0, group);
                 group = group.ParentGroup;
             }
+
             return groupPath;
         }
 
         protected void readEntryStringAndCopyToClipboard(string name)
         {
-            string str = entry.Strings.ReadSafe(name);
-            if (str != null)
-            {
-                int duration = options.clearClipboard ? options.clearClipboardTime : 0;
-                Util.CopyToClipboard(str, duration);
-            }
+            ClipboardUtil.CopyAndMinimize(entry.Strings.ReadSafe(name),
+                true,
+                KeePass.Program.Config.MainWindow.MinimizeAfterClipboardCopy ? host.MainWindow : null,
+                entry, host.MainWindow.ActiveDatabase);
+            host.MainWindow.StartClipboardCountdown();
         }
     }
 }

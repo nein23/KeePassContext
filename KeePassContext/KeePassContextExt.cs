@@ -6,19 +6,26 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Text;
+using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 namespace KeePassContext
 {
     public class KeePassContextExt : Plugin
     {
-        private IPluginHost host = null;
-        private MainForm main = null;
-        private ImageList images = null;
-        private ContextMenuStrip contextMenu = null;
-        private PwDatabase db { get { return host.MainWindow.ActiveDatabase; } }
-        private List<ToolStripItem> contextItems = new List<ToolStripItem>();
+        private IPluginHost host;
+        private MainForm main;
+        private ImageList images;
+        private ContextMenuStrip contextMenu;
+
+        private PwDatabase db
+        {
+            get { return host.MainWindow.ActiveDatabase; }
+        }
+
+        private List<ToolStripItem> contextItems;
+        private List<ToolStripItem> standardItems;
         private OptionsForm optionsForm;
         private Options options;
 
@@ -30,169 +37,162 @@ namespace KeePassContext
             this.contextMenu = host.MainWindow.TrayContextMenu;
             this.options = new Options(host);
 
-            host.MainWindow.TrayContextMenu.Opening += contextMenu_Opening;
-            host.MainWindow.TrayContextMenu.Closed += contextMenu_Closed;
-
-            createOptionsMenu();
+            host.MainWindow.TrayContextMenu.Opening += ContextMenu_Opening;
+            host.MainWindow.TrayContextMenu.Closed += ContextMenu_Closed;
+            CreateOptionsMenu();
             return true;
         }
 
-        public override string UpdateUrl { get { return "https://raw.githubusercontent.com/nein23/KeePassContext/master/version"; } }
-
-        private void contextMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        public override string UpdateUrl
         {
-            clearContextMenu();
+            get { return "https://raw.githubusercontent.com/nein23/KeePassContext/master/version"; }
+        }
+
+        private void ContextMenu_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            contextItems = new List<ToolStripItem>();
             if (db != null && db.IsOpen)
             {
-                createContextMenu();
+                CreateContextMenu();
             }
         }
 
-        private void contextMenu_Closed(object sender, ToolStripDropDownClosedEventArgs e)
+        private void ContextMenu_Closed(object sender, ToolStripDropDownClosedEventArgs e)
         {
-            clearContextMenu();
+            ClearContextMenu();
         }
 
-        private void clearContextMenu()
+        public void ClearContextMenu()
         {
-            foreach (ToolStripItem item in contextItems)
+            if (contextItems != null)
             {
-                contextMenu.Items.Remove(item);
+                foreach (var item in contextItems)
+                {
+                    contextMenu.Items.Remove(item);
+                }
+
+                contextItems.Clear();
             }
+        }
+
+        private void CreateContextMenu()
+        {
             contextItems = new List<ToolStripItem>();
-        }
+            List<string> filter = options.GetGroupFilter();
+            contextItems.AddRange(CreateContextItems(db.RootGroup, filter));
+            contextItems.Add(new ToolStripSeparator());
 
-        private void createContextMenu()
-        {
-            Dictionary<string, int> filter = options.getGroupFilter();
-            contextItems = createContextItems(db.RootGroup, filter);
-            if (contextItems.Count > 0) contextItems.Add(new ToolStripSeparator());
-            int i = 0;
-            foreach (ToolStripItem contextItem in contextItems)
+            standardItems = new List<ToolStripItem>();
+            foreach (ToolStripItem item in contextMenu.Items)
             {
-                contextMenu.Items.Insert(i, contextItem);
-                i++;
+                standardItems.Add(item);
             }
+
+            contextMenu.Items.Clear();
+            contextMenu.Items.AddRange(contextItems.ToArray());
+            contextMenu.Items.AddRange(standardItems.ToArray());
         }
 
-        private List<ToolStripItem> createContextItems(PwGroup parent, Dictionary<string, int> filter)
+        private List<ToolStripItem> CreateContextItems(PwGroup parent, List<string> filter)
         {
             List<ToolStripItem> items = new List<ToolStripItem>();
             if (parent != null)
             {
                 List<ToolStripItem> groupItems = new List<ToolStripItem>();
                 List<ToolStripItem> entryItems = new List<ToolStripItem>();
-
                 //Create group items
                 foreach (PwGroup group in parent.Groups)
                 {
                     if (group != null)
                     {
-                        if (db.RecycleBinEnabled && db.RecycleBinUuid.Equals(group.Uuid) && !options.showRecycleBin) continue;
-                        List<ToolStripItem> subGroupItems = createContextItems(group, filter);
-                        if (subGroupItems.Count > 0 || options.showEmptyGroups)
+                        if (db.RecycleBinEnabled && db.RecycleBinUuid.Equals(group.Uuid) && !options.ShowRecycleBin)
+                            continue;
+                        List<ToolStripItem> subGroupItems = CreateContextItems(group, filter);
+                        if (subGroupItems.Count > 0 ||
+                            (options.ShowEmptyGroups && !filter.Contains(group.Uuid.ToHexString())))
                         {
                             ToolStripMenuItem groupItem = new ToolStripMenuItem();
                             groupItem.Text = group.Name;
-                            groupItem.Image = Util.getIcon(db, host.MainWindow.ClientIcons, group.CustomIconUuid, group.IconId);
+                            groupItem.Image = Util.GetIcon(db, host.MainWindow.ClientIcons, group.CustomIconUuid,
+                                group.IconId);
                             groupItem.Tag = group;
                             groupItem.DropDownDirection = ToolStripDropDownDirection.Left;
                             foreach (ToolStripItem subGroupItem in subGroupItems)
                             {
                                 if (subGroupItem != null) groupItem.DropDown.Items.Add(subGroupItem);
                             }
-                            //add if this group or a subgroup is in filter
-                            if(filter == null || isCheckedInFilter(Util.byteArrToStr(group.Uuid.UuidBytes), filter)
-                                || itemsContainFilter(ToolStipItemCollectionToList(groupItem.DropDown.Items), filter))
-                                groupItems.Add(groupItem);
+
+                            groupItems.Add(groupItem);
                         }
                     }
                 }
 
                 //Create entry items
-                // add if parent or a added group is in filter
-                if (filter == null || isCheckedInFilter(Util.byteArrToStr(parent.Uuid.UuidBytes), filter) || itemsContainFilter(groupItems, filter))
+                if (groupItems.Count > 0 || filter == null || !filter.Contains(parent.Uuid.ToHexString()))
                 {
                     foreach (PwEntry entry in parent.Entries)
                     {
                         ToolStripMenuItem entryItem = new ToolStripMenuItem();
                         string title = entry.Strings.ReadSafe(PwDefs.TitleField);
-                        if (title == null || "".Equals(title)) title = "Unnamed";
                         entryItem.Text = title;
                         bool expired = false;
                         if (entry.Expires)
                         {
                             expired = entry.ExpiryTime.CompareTo(DateTime.Now) < 0;
                         }
+
                         if (expired)
                         {
-                            if (!options.showExpiredEntries) continue;
-                            entryItem.Image = Util.getIcon(db, host.MainWindow.ClientIcons, PwUuid.Zero, PwIcon.Expired);
+                            if (!options.ShowExpiredEntries) continue;
+                            entryItem.Image = Util.GetIcon(db, host.MainWindow.ClientIcons, PwUuid.Zero,
+                                PwIcon.Expired);
                             entryItem.Font = new Font(entryItem.Font, FontStyle.Strikeout);
                         }
-                        else entryItem.Image = Util.getIcon(db, host.MainWindow.ClientIcons, entry.CustomIconUuid, entry.IconId);
+                        else
+                            entryItem.Image = Util.GetIcon(db, host.MainWindow.ClientIcons, entry.CustomIconUuid,
+                                entry.IconId);
+
                         entryItem.Tag = entry;
-                        entryItem.Click += entryItem_Click;
+                        entryItem.Click += EntryItem_Click;
                         entryItems.Add(entryItem);
                     }
                 }
 
-                //Merge lists and add separate if needed
+                //order entryItems by name
+                Func<string, object> convert = str =>
+                {
+                    try { return int.Parse(str); }
+                    catch { return str; }
+                };
+                entryItems = entryItems.OrderBy(
+                    item => Regex.Split(item.Text.Replace(" ", ""), "([0-9]+)").Select(convert),
+                    new EnumerableComparer<object>()).ToList();
+
+                //Merge lists and add separator if needed
                 items.AddRange(groupItems);
                 if (groupItems.Count > 0 && entryItems.Count > 0) items.Add(new ToolStripSeparator());
                 items.AddRange(entryItems);
             }
+
             return items;
         }
 
-        private bool itemsContainFilter(List<ToolStripItem> items, Dictionary<string, int> filter)
+        private void EntryItem_Click(object sender, EventArgs e)
         {
-            if (filter == null) return true;
-            foreach(ToolStripItem item in items)
+            if (!QuickAccessForm.IS_OPEN && sender is ToolStripMenuItem)
             {
-                if(item is ToolStripMenuItem && item.Tag != null && item.Tag is PwGroup)
+                ToolStripMenuItem item = (ToolStripMenuItem) sender;
+                if (item.Tag != null && item.Tag is PwEntry)
                 {
-                    PwGroup group = (PwGroup)item.Tag;
-                    string id = Util.byteArrToStr(group.Uuid.UuidBytes);
-                    List<ToolStripItem> subItems = ToolStipItemCollectionToList(((ToolStripMenuItem)item).DropDown.Items);
-                    if (isCheckedInFilter(id, filter) || itemsContainFilter(subItems, filter)) return true;
+                    PwEntry entry = (PwEntry) item.Tag;
+                    QuickAccessForm.IS_OPEN = true;
+                    new QuickAccessForm(host, entry, options, PwDefs.IsTanEntry(entry)).ShowDialog();
+                    QuickAccessForm.IS_OPEN = false;
                 }
             }
-            return false;
         }
 
-        private bool isCheckedInFilter(string id, Dictionary<string, int> filter)
-        {
-            if (filter.ContainsKey(id) && (filter[id] == (int)CheckBoxTreeView.CheckedState.Checked || filter[id] == (int)CheckBoxTreeView.CheckedState.Mixed))
-                return true;
-            else return false;
-        }
-
-        private List<ToolStripItem> ToolStipItemCollectionToList(ToolStripItemCollection items)
-        {
-            List<ToolStripItem> list = new List<ToolStripItem>();
-            foreach (ToolStripItem item in items)
-            {
-                list.Add(item);
-            }
-            return list;
-        }
-
-        private void entryItem_Click(object sender, EventArgs e)
-        {
-            if (sender.GetType() == typeof(ToolStripMenuItem))
-            {
-                ToolStripMenuItem item = (ToolStripMenuItem)sender;
-                if (item.Tag != null && item.Tag.GetType() == typeof(PwEntry))
-                {
-                    PwEntry entry = (PwEntry)item.Tag;
-                    new QuickAccessForm(host, entry, options, PwDefs.IsTanEntry(entry)).Show();
-                }
-            }
-            
-        }
-        
-        private void createOptionsMenu()
+        private void CreateOptionsMenu()
         {
             ToolStripItemCollection menuItems = host.MainWindow.ToolsMenu.DropDownItems;
             ToolStripMenuItem kpcMenuItem = new ToolStripMenuItem();

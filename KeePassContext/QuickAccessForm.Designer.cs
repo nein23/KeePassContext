@@ -77,6 +77,7 @@
             this.buttonCopyNotes.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.buttonCopyNotes.UseVisualStyleBackColor = true;
             this.buttonCopyNotes.Click += new System.EventHandler(this.buttonCopyNotes_Click);
+            this.buttonCopyNotes.MouseDown += new System.Windows.Forms.MouseEventHandler(this.buttonCopyNotes_MouseDown);
             // 
             // buttonMainWindow
             // 
@@ -111,6 +112,7 @@
             this.buttonCopyPw.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.buttonCopyPw.UseVisualStyleBackColor = true;
             this.buttonCopyPw.Click += new System.EventHandler(this.buttonCopyPw_Click);
+            this.buttonCopyPw.MouseDown += new System.Windows.Forms.MouseEventHandler(this.buttonCopyPw_MouseDown);
             // 
             // buttonCopyUser
             // 
@@ -123,6 +125,7 @@
             this.buttonCopyUser.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.buttonCopyUser.UseVisualStyleBackColor = true;
             this.buttonCopyUser.Click += new System.EventHandler(this.buttonCopyUser_Click);
+            this.buttonCopyUser.MouseDown += new System.Windows.Forms.MouseEventHandler(this.buttonCopyUser_MouseDown);
             // 
             // buttonUrl
             // 

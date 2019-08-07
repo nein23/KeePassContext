@@ -4,9 +4,6 @@ using KeePassLib;
 using KeePassLib.Collections;
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Windows.Forms;
 
 namespace KeePassContext
 {
@@ -30,61 +27,61 @@ namespace KeePassContext
         private IPluginHost host;
         private AceCustomConfig config;
 
-        public bool showEmptyGroups
+        public bool ShowEmptyGroups
         {
             get { return config.GetBool(CONFIG_SHOW_EMPTY_GROUPS, false); }
             set { config.SetBool(CONFIG_SHOW_EMPTY_GROUPS, value); }
         }
 
-        public bool showExpiredEntries
+        public bool ShowExpiredEntries
         {
             get { return config.GetBool(CONFIG_SHOW_EXPIRED, false); }
             set { config.SetBool(CONFIG_SHOW_EXPIRED, value); }
         }
 
-        public bool showRecycleBin
+        public bool ShowRecycleBin
         {
             get { return config.GetBool(CONFIG_SHOW_RECYCLE_BIN, false); }
             set { config.SetBool(CONFIG_SHOW_RECYCLE_BIN, value); }
         }
 
-        public bool clearClipboard
+        public bool ClearClipboard
         {
             get { return config.GetBool(CONFIG_CLEAR_CLIPBOARD, true); }
             set { config.SetBool(CONFIG_CLEAR_CLIPBOARD, value); }
         }
 
-        public int clearClipboardTime
+        public int ClearClipboardTime
         {
             get { return Convert.ToInt32(config.GetString(CONFIG_CLEAR_CLIPBOARD_TIME, "12")); }
             set { config.SetString(CONFIG_CLEAR_CLIPBOARD_TIME, Convert.ToString(value)); }
         }
 
-        public int location
+        public int Location
         {
             get { return Convert.ToInt32(config.GetString(CONFIG_LOCATION, Convert.ToString((int)Locations.Center))); }
             set { config.SetString(CONFIG_LOCATION, Convert.ToString(value)); }
         }
 
-        public bool closeAfterCopy
+        public bool CloseAfterCopy
         {
             get { return config.GetBool(CONFIG_CLOSE_AFTER_COPY, false); }
             set { config.SetBool(CONFIG_CLOSE_AFTER_COPY, value); }
         }
 
-        public bool closeAfterAutoType
+        public bool CloseAfterAutoType
         {
             get { return config.GetBool(CONFIG_CLOSE_AFTER_AUTOTYPE, false); }
             set { config.SetBool(CONFIG_CLOSE_AFTER_AUTOTYPE, value); }
         }
 
-        public bool closeAfterTime
+        public bool CloseAfterTime
         {
             get { return config.GetBool(CONFIG_CLOSE_AFTER_TIME, false); }
             set { config.SetBool(CONFIG_CLOSE_AFTER_TIME, value); }
         }
 
-        public int closeTime
+        public int CloseTime
         {
             get { return Convert.ToInt32(config.GetString(CONFIG_CLOSE_TIME, "30")); }
             set { config.SetString(CONFIG_CLOSE_TIME, Convert.ToString(value)); }
@@ -97,7 +94,7 @@ namespace KeePassContext
             
         }
 
-        public void clear()
+        public void Clear()
         {
             config.SetString(CONFIG_SHOW_EMPTY_GROUPS, null);
             config.SetString(CONFIG_SHOW_EXPIRED, null);
@@ -109,11 +106,15 @@ namespace KeePassContext
             config.SetString(CONFIG_CLOSE_AFTER_AUTOTYPE, null);
             config.SetString(CONFIG_CLOSE_AFTER_TIME, null);
             config.SetString(CONFIG_CLOSE_TIME, null);
-            StringDictionaryEx dbConfig = host.MainWindow.ActiveDatabase.CustomData;
-            dbConfig.Remove(CONFIG_GROUPFILTER);
+            PwDatabase db = host.MainWindow.ActiveDatabase;
+            if (db != null && db.IsOpen)
+            {
+                StringDictionaryEx dbConfig = db.CustomData;
+                dbConfig.Remove(CONFIG_GROUPFILTER);
+            }
         }
 
-        public bool isOptionsEmpty()
+        public bool IsOptionsEmpty()
         {
             object o = config.GetString(CONFIG_SHOW_EMPTY_GROUPS, null);
             if (o != null) return false;
@@ -141,23 +142,22 @@ namespace KeePassContext
             return false;
         }
 
-        public Dictionary<string, int> getGroupFilter()
+        internal List<string> GetGroupFilter()
         {
             StringDictionaryEx dbConfig = host.MainWindow.ActiveDatabase.CustomData;
-            Dictionary<string, int> ids = new Dictionary<string, int>();
+            List<string> ids = new List<string>();
             if (!dbConfig.Exists(CONFIG_GROUPFILTER)) return null;
             string groupFilterStr = dbConfig.Get(CONFIG_GROUPFILTER);
             if (groupFilterStr == "") return ids;
-            string[] groupFilterSplit = groupFilterStr.Split(';');
+            string[] groupFilterSplit = groupFilterStr.Split(new char[] { ';' }, StringSplitOptions.RemoveEmptyEntries);
             foreach(string id in groupFilterSplit)
             {
-                string[] split = id.Split(':');
-                ids.Add(split[0], Int32.Parse(split[1]));
+                ids.Add(id);
             }
             return ids;
         }
 
-        public void setGroupFilter(string ids)
+        internal void SetGroupFilter(string ids)
         {
             StringDictionaryEx dbConfig = host.MainWindow.ActiveDatabase.CustomData;
             if (ids != null && !ids.Equals(""))

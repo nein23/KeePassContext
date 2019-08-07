@@ -2,6 +2,7 @@
 using KeePassLib;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Windows.Forms;
 
 namespace KeePassContext
@@ -10,34 +11,34 @@ namespace KeePassContext
     {
         private MainForm mainWindow;
         private Options options;
-        private Dictionary<string, int> filterSettings;
+        private List<string> filterSettings;
         private bool edited = false;
 
         public OptionsForm(Options options, MainForm mainWindow)
         {
             this.mainWindow = mainWindow;
             this.options = options;
-            this.filterSettings = options.getGroupFilter();
+            this.filterSettings = options.GetGroupFilter();
 
             InitializeComponent();
 
-            checkBox_showEmpty.Checked = options.showEmptyGroups;
-            checkBox_showExpired.Checked = options.showExpiredEntries;
-            checkBox_showRecycleBin.Checked = options.showRecycleBin;
-            checkBox_clearClipboard.Checked = options.clearClipboard;
-            numericUpDown_clearClipboard.Value = options.clearClipboardTime;
-            comboBox_location.SelectedIndex = options.location;
-            buttonclear.Enabled = !options.isOptionsEmpty();
-            checkBox_closeQAUserPw.Checked = options.closeAfterCopy;
-            checkBox_closeQAAutoType.Checked = options.closeAfterAutoType;
-            checkBox_closeQAAfterTime.Checked = options.closeAfterTime;
-            numericUpDown_closeQATime.Value = options.closeTime;
+            checkBox_showEmpty.Checked = options.ShowEmptyGroups;
+            checkBox_showExpired.Checked = options.ShowExpiredEntries;
+            checkBox_showRecycleBin.Checked = options.ShowRecycleBin;
+            checkBox_clearClipboard.Checked = options.ClearClipboard;
+            numericUpDown_clearClipboard.Value = options.ClearClipboardTime;
+            comboBox_location.SelectedIndex = options.Location;
+            buttonclear.Enabled = !options.IsOptionsEmpty();
+            checkBox_closeQAUserPw.Checked = options.CloseAfterCopy;
+            checkBox_closeQAAutoType.Checked = options.CloseAfterAutoType;
+            checkBox_closeQAAfterTime.Checked = options.CloseAfterTime;
+            numericUpDown_closeQATime.Value = options.CloseTime;
 
             checkBoxTreeView_groupFilter.ImageList = mainWindow.ClientIcons;
             PwDatabase db = mainWindow.ActiveDatabase;
             if (db != null && db.IsOpen)
             {
-                createTree(checkBoxTreeView_groupFilter.Nodes, db.RootGroup);
+                CreateTree(checkBoxTreeView_groupFilter.Nodes, db.RootGroup, checkBoxTreeView_groupFilter.ImageList, new Dictionary<PwUuid, int>());
             }
             else {
                 checkBoxTreeView_groupFilter.Enabled = false;
@@ -51,53 +52,65 @@ namespace KeePassContext
             edited = true;
         }
 
-        private void createTree(TreeNodeCollection nodes, PwGroup group)
+        private void CreateTree(TreeNodeCollection nodes, PwGroup group, ImageList images, Dictionary<PwUuid, int> addedCustomIcons)
         {
             if (group != null && nodes != null)
             {
                 TreeNode node = new TreeNode(group.Name);
-                node.ImageIndex = node.SelectedImageIndex = (int)group.IconId;
-                string id = Util.byteArrToStr(group.Uuid.UuidBytes);
+                int iconId = (int)group.IconId;
+                if (addedCustomIcons.ContainsKey(group.CustomIconUuid))
+                {
+                    iconId = addedCustomIcons[group.CustomIconUuid];
+                }
+                else if (!PwUuid.Zero.Equals(group.CustomIconUuid))
+                {
+                    PwDatabase db = mainWindow.ActiveDatabase;
+                    if (db != null && db.IsOpen)
+                    {
+                        Image img = mainWindow.ActiveDatabase.GetCustomIcon(group.CustomIconUuid, 16, 16);
+                        if (img != null)
+                        {
+                            iconId = images.Images.Count;
+                            addedCustomIcons.Add(group.CustomIconUuid, iconId);
+                            images.Images.Add(img);
+                        }
+                    }
+                }
+
+                node.ImageIndex = node.SelectedImageIndex = iconId;
+                string id = group.Uuid.ToHexString();
                 node.Tag = id;
                 node.StateImageIndex = (int)CheckBoxTreeView.CheckedState.UnChecked;
                 nodes.Add(node);
-                bool checkedState = false;
-                if (filterSettings != null && filterSettings.ContainsKey((string)node.Tag))
+                if (filterSettings == null || !filterSettings.Contains((string)node.Tag))
                 {
-                    if (filterSettings[(string)node.Tag] == (int)CheckBoxTreeView.CheckedState.Checked || filterSettings[(string)node.Tag] == (int)CheckBoxTreeView.CheckedState.Mixed)
-                    {
-                        node.Checked = !node.Checked;
-                        checkedState = true;
-                    }
-
+                    node.Checked = !node.Checked;
                 }
                 else
                 {
-                    node.Checked = !node.Checked;
-                    checkedState = true;
+                    checkBoxTreeView_groupFilter.UpdateParent(node.Parent);
                 }
-                if (!checkedState) checkBoxTreeView_groupFilter.UpdateParent(node.Parent);
                 foreach (PwGroup child in group.Groups)
                 {
-                    createTree(node.Nodes, child);
+                    CreateTree(node.Nodes, child, images, addedCustomIcons);
                 }
             }
         }
 
         private void button_OK_Click(object sender, EventArgs e)
         {
-            options.showEmptyGroups = checkBox_showEmpty.Checked;
-            options.showExpiredEntries = checkBox_showExpired.Checked;
-            options.showRecycleBin = checkBox_showRecycleBin.Checked;
-            options.clearClipboard = checkBox_clearClipboard.Checked;
-            options.clearClipboardTime = Convert.ToInt32(numericUpDown_clearClipboard.Value);
-            options.location = comboBox_location.SelectedIndex;
-            options.closeAfterCopy = checkBox_closeQAUserPw.Checked;
-            options.closeAfterAutoType = checkBox_closeQAAutoType.Checked;
-            options.closeAfterTime = checkBox_closeQAAfterTime.Checked;
-            options.closeTime = Convert.ToInt32(numericUpDown_closeQATime.Value);
-            string toSave = getFilterSettings(checkBoxTreeView_groupFilter.Nodes).TrimEnd(';');
-            options.setGroupFilter(toSave);
+            options.ShowEmptyGroups = checkBox_showEmpty.Checked;
+            options.ShowExpiredEntries = checkBox_showExpired.Checked;
+            options.ShowRecycleBin = checkBox_showRecycleBin.Checked;
+            options.ClearClipboard = checkBox_clearClipboard.Checked;
+            options.ClearClipboardTime = Convert.ToInt32(numericUpDown_clearClipboard.Value);
+            options.Location = comboBox_location.SelectedIndex;
+            options.CloseAfterCopy = checkBox_closeQAUserPw.Checked;
+            options.CloseAfterAutoType = checkBox_closeQAAutoType.Checked;
+            options.CloseAfterTime = checkBox_closeQAAfterTime.Checked;
+            options.CloseTime = Convert.ToInt32(numericUpDown_closeQATime.Value);
+            string toSave = getFilterSettings(checkBoxTreeView_groupFilter.Nodes);
+            options.SetGroupFilter(toSave);
             if (edited)
             {
                 mainWindow.UpdateUI(false, null, false, mainWindow.GetSelectedGroup(), false, mainWindow.GetSelectedGroup(), true);
@@ -110,7 +123,8 @@ namespace KeePassContext
             foreach(TreeNode node in nodes)
             {
                 str += getFilterSettings(node.Nodes);
-                str += (string)node.Tag + ":" + node.StateImageIndex + ";";
+                if(node.StateImageIndex == (int)CheckBoxTreeView.CheckedState.UnChecked)
+                    str += (string)node.Tag + ";";
             }
             return str;
         }
@@ -120,7 +134,7 @@ namespace KeePassContext
             DialogResult res = MessageBox.Show("Are you sure?", "Clear KeePassContext Data", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
             if(res == DialogResult.Yes)
             {
-                options.clear();
+                options.Clear();
                 this.Close();
             }
         }
