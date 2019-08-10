@@ -169,24 +169,7 @@ namespace KeePassContext
 
         private void buttonUrl_Click(object sender, EventArgs e)
         {
-            Point ptLowerLeft = new Point(0, buttonUrl.Height);
-            ptLowerLeft = buttonUrl.PointToScreen(ptLowerLeft);
-
-            ContextMenuStrip con = new ContextMenuStrip();
-
-            ToolStripMenuItem item = new ToolStripMenuItem();
-            item.Image = imgList.Images[1];
-            item.Text = "Open URL";
-            item.Click += OpenURL_Click;
-            con.Items.Add(item);
-
-            item = new ToolStripMenuItem();
-            item.Image = imgList.Images[1];
-            item.Text = "Copy URL";
-            item.Click += CopyURL_Click;
-            con.Items.Add(item);
-
-            con.Show(ptLowerLeft);
+            WinUtil.OpenEntryUrl(entry);
         }
 
         private void buttonUrl_MouseDown(object sender, MouseEventArgs e)
@@ -201,16 +184,6 @@ namespace KeePassContext
                 string data = entry.Strings.ReadSafe(PwDefs.UrlField);
                 buttonUrl.DoDragDrop(data, DragDropEffects.Copy);
             }
-        }
-
-        private void OpenURL_Click(object sender, EventArgs e)
-        {
-            WinUtil.OpenEntryUrl(entry);
-        }
-
-        private void CopyURL_Click(object sender, EventArgs e)
-        {
-            readEntryStringAndCopyToClipboard(PwDefs.UrlField);
         }
 
         private void buttonCopyUser_Click(object sender, EventArgs e)
